@@ -1,4 +1,4 @@
-import { Pt, Group, Polygon } from "pts";
+import { Pt, Group } from "pts";
 import * as THREE from "three";
 
 function polygon(pts) {
@@ -227,15 +227,15 @@ function kirkpatrick(pts, triangles, outer_triangle) {
   }
 
   // close polygon
-  if (!equal(pts[0], pts[pts.length - 1])) {
-    pts.push(pts[0]);
-  }
+  //   if (!equal(pts[0], pts[pts.length - 1])) {
+  //     pts.push(pts[0]);
+  //   }
 
   // re-triangulate
   let new_triangles = triangulate(pts.clone());
   let new_triangles_hole = triangulateHole(outer_triangle.clone(), pts.clone());
   let all_triangles = new_triangles.clone().insert(new_triangles_hole.clone());
-
+  console.log(pts);
   return [pts, new_triangles, new_triangles_hole, all_triangles];
 }
 
@@ -256,7 +256,7 @@ export default function computeKirkpatrick(pts, outer_triangle) {
 
   levels.push([points, new_triangles, new_triangles_hole, new_all_triangles]);
 
-  while (new_triangles.length != 0) {
+  while (new_triangles.length !== 0) {
     [points, new_triangles, new_triangles_hole, new_all_triangles] =
       kirkpatrick(
         points.clone(),
