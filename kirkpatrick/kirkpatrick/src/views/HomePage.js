@@ -17,7 +17,7 @@ export default function HomePage() {
         <Typography variant="h2" sx={{ color: "white" }}>
           Kirkpatrick's Algorithm
         </Typography>
-        <Button variant="contained" href="/demo" sx={{ mt: 10 }}>
+        <Button variant="contained" href={"/demo"} sx={{ mt: 10 }}>
           Demo
         </Button>
       </Box>
