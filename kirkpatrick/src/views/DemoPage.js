@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Box } from "@mui/material";
 import { Pt, Group } from "pts";
 import { QuickStartCanvas } from "react-pts-canvas";
 import GUI from "../components/GUI";
-import computeKirkpatrick from "../algorithm/kirkpatrick_1";
+import { computeKirkpatrick, findLocation } from "../algorithm/kirkpatrick_1";
 import { createColor } from "material-ui-color";
 
 export default function DemoPage() {
@@ -15,19 +15,22 @@ export default function DemoPage() {
   const [insideColor, setInsideColor] = useState(createColor("#72B4F6"));
   const [slide, setSlide] = useState(0);
   const [findPoint, setFindPoint] = useState(false);
+  const [pointTriangle, setPointTriangle] = useState(new Group());
+  const pointer = useRef(new Pt());
 
   let triangle;
   let triangleHole;
   let levels = [];
+  let dag = {};
 
   if (pts.length > 0) {
     let info = computeKirkpatrick(pts, outerTriangle);
     triangle = info[0];
     triangleHole = info[1];
     let all_triangles = triangle.clone().insert(triangleHole.clone());
-
-    levels.push([pts, triangle, triangleHole, all_triangles]);
+    levels = [];
     levels.push(...info[2]);
+    dag = info[3];
   }
 
   return (
@@ -61,7 +64,6 @@ export default function DemoPage() {
               )
             );
           }
-          new_pts.push(new_pts[0]);
 
           setPts(Group.fromPtArray(new_pts));
 
@@ -82,8 +84,8 @@ export default function DemoPage() {
           );
           form.fill("#9ab").polygon(big_triangles);
 
-          // if n changes
-          if (parseInt(n) !== parseInt(pts.length - 1)) {
+          // n changes
+          if (parseInt(n) !== parseInt(pts.length)) {
             let num_points = n;
             let x_size = space.size.x * 0.3;
             let y_size = space.size.y * 0.3;
@@ -96,7 +98,6 @@ export default function DemoPage() {
                 )
               );
             }
-            new_pts.push(new_pts[0]);
 
             setPts(Group.fromPtArray(new_pts));
 
@@ -114,8 +115,10 @@ export default function DemoPage() {
               triangleHole = info[1];
               let all_triangles = triangle.clone().insert(triangleHole.clone());
 
-              levels.push([pts, triangle, triangleHole, all_triangles]);
+              levels = [];
               levels.push(...info[2]);
+
+              dag = info[3];
             }
           }
 
@@ -139,13 +142,29 @@ export default function DemoPage() {
             setSlide(0);
             form.fill(insideColor.css.backgroundColor).polygons(triangle);
             form.fill(outsideColor.css.backgroundColor).polygons(triangleHole);
-            form.fill("#fff").points(pts, 5, "circle");
+            // form.fill("#fff").points(pts, 5, "circle");
           }
 
           // find point
           if (findPoint) {
             space.bindMouse().bindTouch().play();
             form.fill("#455").point(space.pointer, 5);
+
+            if (
+              pointer.current.x !== space.pointer.x &&
+              pointer.current.y !== space.pointer.y
+            ) {
+              pointer.current = space.pointer;
+              let point_triangle = findLocation(
+                pointer.current,
+                dag,
+                outerTriangle
+              );
+
+              setPointTriangle(point_triangle);
+            }
+
+            form.fill("672").polygon(pointTriangle);
           }
         }}
       />

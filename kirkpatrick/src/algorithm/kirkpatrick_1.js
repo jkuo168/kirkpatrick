@@ -1,4 +1,5 @@
-import { Pt, Group } from "pts";
+import { containerClasses } from "@mui/material";
+import { Pt, Group, Polygon } from "pts";
 import * as THREE from "three";
 
 function polygon(pts) {
@@ -40,7 +41,6 @@ function polygon(pts) {
   let sorted_lower = sortX(lower);
 
   polygon = sorted_upper.concat(sorted_lower.reverse());
-  polygon = polygon.concat(polygon[0]);
   return Group.fromPtArray(polygon);
 }
 
@@ -158,7 +158,11 @@ function computeAdjacencyGraph(triangles) {
   return adjacency;
 }
 
-function findIndependentSet(triangles, outer_triangle) {
+function findIndependentSet(pts, triangles, outer_triangle) {
+  if (pts.length === 2) {
+    return Group.fromPtArray([pts[0]]);
+  }
+
   let independent_set = [];
   let adjacency = computeAdjacencyGraph(triangles);
 
@@ -175,7 +179,6 @@ function findIndependentSet(triangles, outer_triangle) {
       for (let j = 0; j < n.length; j++) {
         f = f.concat(n[j].split(")"));
       }
-
       return new Pt(parseFloat(f[1]), parseFloat(f[2]));
     };
 
@@ -213,7 +216,11 @@ function findIndependentSet(triangles, outer_triangle) {
 
 function kirkpatrick(pts, triangles, outer_triangle) {
   // find independent set
-  let independent_set = findIndependentSet(triangles, outer_triangle);
+  let independent_set = findIndependentSet(
+    pts.clone(),
+    triangles.clone(),
+    outer_triangle.clone()
+  );
 
   // remove points from list
   let equal = (a, b) => {
@@ -226,20 +233,107 @@ function kirkpatrick(pts, triangles, outer_triangle) {
     });
   }
 
-  // close polygon
-  //   if (!equal(pts[0], pts[pts.length - 1])) {
-  //     pts.push(pts[0]);
-  //   }
-
   // re-triangulate
   let new_triangles = triangulate(pts.clone());
   let new_triangles_hole = triangulateHole(outer_triangle.clone(), pts.clone());
   let all_triangles = new_triangles.clone().insert(new_triangles_hole.clone());
-  console.log(pts);
+
   return [pts, new_triangles, new_triangles_hole, all_triangles];
 }
 
-export default function computeKirkpatrick(pts, outer_triangle) {
+function computeDag(levels) {
+  let dag = {};
+  let same = (a, b) => {
+    for (let i = 0; i < a.length; i++) {
+      let found = false;
+      for (let j = 0; j < b.length; j++) {
+        if (a[i].x === b[j].x && a[i].y === b[j].y) {
+          found = true;
+        }
+      }
+      if (!found) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  let intersect = (old_tri, new_tri) => {
+    // point in old must be in new
+    let inside = false;
+    for (let i = 0; i < old_tri.length; i++) {
+      if (!same(old_tri, new_tri)) {
+        inside = true;
+      }
+    }
+    return inside;
+  };
+
+  let filter = (a, b) => {
+    let new_a = [];
+    for (let i = 0; i < a.length; i++) {
+      let s = false;
+      for (let j = 0; j < b.length; j++) {
+        if (same(a[i], b[j])) {
+          s = true;
+        }
+      }
+      if (!s) {
+        new_a.push(a[i]);
+      }
+    }
+
+    return new_a;
+  };
+
+  for (let i = 0; i < levels.length; i++) {
+    if (i + 1 < levels.length) {
+      let new_triangles = levels[i + 1][3];
+      let old_triangles = levels[i][3];
+
+      // filter out same triangles
+      let filtered_new_triangles = filter(new_triangles, old_triangles);
+      let filtered_old_triangles = filter(old_triangles, new_triangles);
+
+      // for each new triangle
+      for (let j = 0; j < filtered_new_triangles.length; j++) {
+        // find old triangles that intersect it
+        for (let k = 0; k < filtered_old_triangles.length; k++) {
+          if (intersect(filtered_old_triangles[k], filtered_new_triangles[j])) {
+            if (!dag[filtered_new_triangles[j]]) {
+              dag[filtered_new_triangles[j]] = [];
+            }
+            dag[filtered_new_triangles[j]].push(filtered_old_triangles[k]);
+          }
+        }
+      }
+    }
+  }
+  return dag;
+}
+
+export function findLocation(point, dag, outer_triangle) {
+  let queue = [];
+  queue.push(dag[outer_triangle]);
+
+  while (queue.length > 0) {
+    let triangles = queue.pop(0);
+    // list of triangles
+    for (let i = 0; i < triangles.length; i++) {
+      if (Polygon.hasIntersectPoint(triangles[i], point)) {
+        if (!dag[triangles[i]]) {
+          return triangles[i];
+        } else {
+          queue.push(dag[triangles[i]]);
+        }
+      }
+    }
+  }
+
+  return new Group();
+}
+
+export function computeKirkpatrick(pts, outer_triangle) {
   pts = polygon(pts);
 
   // triangulate polygon
@@ -251,20 +345,135 @@ export default function computeKirkpatrick(pts, outer_triangle) {
   // compute kirkpatrick's algorithm
   let all_triangles = triangles.clone().insert(triangles_hole.clone());
   let levels = [];
+
+  levels.push([pts, triangles, triangles_hole, all_triangles]);
+
   let [points, new_triangles, new_triangles_hole, new_all_triangles] =
-    kirkpatrick(pts, all_triangles.clone(), outer_triangle.clone());
+    kirkpatrick(pts.clone(), all_triangles.clone(), outer_triangle.clone());
 
   levels.push([points, new_triangles, new_triangles_hole, new_all_triangles]);
 
-  while (new_triangles.length !== 0) {
+  let prev = points.length;
+  while (points.length !== 1 || prev != points.length) {
     [points, new_triangles, new_triangles_hole, new_all_triangles] =
       kirkpatrick(
         points.clone(),
         new_all_triangles.clone(),
         outer_triangle.clone()
       );
+    prev = points.length;
+
     levels.push([points, new_triangles, new_triangles_hole, new_all_triangles]);
   }
 
-  return [triangles, triangles_hole, levels];
+  let dag = computeDag(levels);
+  dag[outer_triangle] = new_all_triangles;
+
+  return [triangles, triangles_hole, levels, dag];
 }
+
+// check if there is a path to get to each small triangle
+//   for (let i = 0; i < all_triangles.length; i++) {
+//     let point = all_triangles[i][0];
+//     let queue = [];
+//     queue.push(outer_triangle);
+//     let found = false;
+//     while (queue.length > 0) {
+//       let tri = queue.pop(0);
+//       for (let j = 0; j < tri.length; j++) {
+//         if (Polygon.hasIntersectPoint(tri[j], point)) {
+//           if (!dag[tri[j]]) {
+//             found = true;
+//             console.log("found");
+//           } else {
+//             queue.push(dag[tri[j]]);
+//           }
+//         }
+//       }
+//     }
+
+//     if (!found) {
+//       console.log(all_triangles[i]);
+//       console.log("HERE");
+//     }
+//   }
+
+//   let keys = Object.keys(dag);
+//   let found = false;
+//   let equal = (a, b) => {
+//     let pointEqual = (X, Y) => {
+//       return X.x === Y.x && X.y === Y.y;
+//     };
+
+//     return (
+//       pointEqual(a[0], b[0]) && pointEqual(a[1], b[1]) && pointEqual(a[2], b[2])
+//     );
+//   };
+
+//   for (let i = 0; i < all_triangles.length; i++) {
+//     for (let j = 0; j < keys.length; j++) {
+//       let triangles = dag[keys[j]];
+//       for (let k = 0; k < triangles.length; k++) {
+//         if (equal(triangles[k], all_triangles[i])) {
+//           found = true;
+//         }
+//       }
+//     }
+
+//     if (!found) {
+//       console.log("not found");
+//     } else {
+//       console.log("found");
+//     }
+//   }
+
+// create DAG
+//   // go through each independent point
+//   for (let i = 0; i < independent_set.length; i++) {
+//     let poly = [];
+//     let original_triangles = [];
+//     // find the triangles the point is a part of
+//     for (let j = 0; j < triangles.length; j++) {
+//       let part_of_triangle = false;
+
+//       for (let k = 0; k < triangles[j].length; k++) {
+//         if (
+//           triangles[j][k].x === independent_set[i].x &&
+//           triangles[j][k].y === independent_set[i].y
+//         ) {
+//           part_of_triangle = true;
+//         }
+//       }
+
+//       // if point is part of triangle, add points to polygon
+//       if (part_of_triangle) {
+//         original_triangles.push(triangles[j]);
+//         for (let k = 0; k < triangles[j].length; k++) {
+//           if (
+//             triangles[j][k].x !== independent_set[i].x &&
+//             triangles[j][k].y !== independent_set[i].y
+//           ) {
+//             poly.push(triangles[j][k]);
+//           }
+//         }
+//       }
+//     }
+
+//     // triangulate the polygon
+//     poly = polygon(poly);
+//     let tri = triangulate(poly);
+
+//     // find which ones of the old triangles intersect with the new triangles
+//     for (let j = 0; j < tri.length; j++) {
+//       let triangle = tri[j];
+
+//       for (let k = 0; k < original_triangles.length; k++) {
+//         if (Polygon.hasIntersectPolygon(triangle, original_triangles[k])) {
+//           if (!dag[triangles[j]]) {
+//             dag[triangles[j]] = [];
+//           }
+//           dag[triangles[j]].push(original_triangles[k]);
+//         }
+//       }
+//     }
+//   }
