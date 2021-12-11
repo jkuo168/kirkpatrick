@@ -10,12 +10,12 @@ export default function DemoPage() {
   const [pts, setPts] = useState(new Group());
   const [outerTriangle, setOuterTriangle] = useState(new Group());
   const [n, setNum] = useState(10);
-  const [animate, setAnimate] = useState(false);
   const [outsideColor, setOutsideColor] = useState(createColor("#FFA908"));
   const [insideColor, setInsideColor] = useState(createColor("#72B4F6"));
   const [slide, setSlide] = useState(0);
-  const [findPoint, setFindPoint] = useState(false);
   const [pointTriangle, setPointTriangle] = useState(new Group());
+  const [generate, setGenerate] = useState(false);
+  const [type, setType] = useState("");
   const pointer = useRef(new Pt());
 
   let triangle;
@@ -39,14 +39,14 @@ export default function DemoPage() {
         <GUI
           n={n}
           setNum={setNum}
-          animate={animate}
-          setAnimate={setAnimate}
           outsideColor={outsideColor}
           setOutsideColor={setOutsideColor}
           insideColor={insideColor}
           setInsideColor={setInsideColor}
-          findPoint={findPoint}
-          setFindPoint={setFindPoint}
+          generate={generate}
+          setGenerate={setGenerate}
+          type={type}
+          setType={setType}
         />
       </Box>
       <QuickStartCanvas
@@ -85,7 +85,8 @@ export default function DemoPage() {
           form.fill("#9ab").polygon(big_triangles);
 
           // n changes
-          if (parseInt(n) !== parseInt(pts.length)) {
+          if (parseInt(n) !== parseInt(pts.length) || generate) {
+            setGenerate(false);
             let num_points = n;
             let x_size = space.size.x * 0.3;
             let y_size = space.size.y * 0.3;
@@ -123,7 +124,7 @@ export default function DemoPage() {
           }
 
           // animate
-          if (animate) {
+          if (type === "animate") {
             if (slide !== parseInt((time / 1000) % levels.length)) {
               setSlide((slide + 1) % levels.length);
             }
@@ -142,11 +143,11 @@ export default function DemoPage() {
             setSlide(0);
             form.fill(insideColor.css.backgroundColor).polygons(triangle);
             form.fill(outsideColor.css.backgroundColor).polygons(triangleHole);
-            // form.fill("#fff").points(pts, 5, "circle");
+            form.fill("#fff").points(pts, 5, "circle");
           }
 
           // find point
-          if (findPoint) {
+          if (type === "find") {
             space.bindMouse().bindTouch().play();
             form.fill("#455").point(space.pointer, 5);
 

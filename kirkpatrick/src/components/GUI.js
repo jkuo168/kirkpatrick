@@ -1,12 +1,13 @@
 import React, { useState } from "react";
 import {
   Box,
+  Button,
   Collapse,
-  Checkbox,
   Divider,
   List,
   ListItemText,
   ListItemButton,
+  Radio,
   TextField,
 } from "@mui/material";
 import ExpandLess from "@mui/icons-material/ExpandLess";
@@ -77,9 +78,14 @@ export default function GUI(props) {
                 }}
               >
                 <ListItemText primary="Animate" sx={{ color: "white" }} />
-                <Checkbox
+                <Radio
+                  checked={props.type === "animate"}
                   onClick={() => {
-                    props.setAnimate(!props.animate);
+                    if (props.type === "animate") {
+                      props.setType("");
+                    } else {
+                      props.setType("animate");
+                    }
                   }}
                 />
               </Box>
@@ -92,9 +98,14 @@ export default function GUI(props) {
                 }}
               >
                 <ListItemText primary="Find Point" sx={{ color: "white" }} />
-                <Checkbox
+                <Radio
+                  checked={props.type === "find"}
                   onClick={() => {
-                    props.setFindPoint(!props.findPoint);
+                    if (props.type === "find") {
+                      props.setType("");
+                    } else {
+                      props.setType("find");
+                    }
                   }}
                 />
               </Box>
@@ -149,6 +160,25 @@ export default function GUI(props) {
                     value={props.insideColor}
                   />
                 </Box>
+              </Box>
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyItems: "center",
+                  justifyContent: "center",
+                  mt: 2,
+                }}
+              >
+                <Button
+                  variant="contained"
+                  onClick={() => {
+                    props.setGenerate(true);
+                  }}
+                >
+                  Generate
+                </Button>
               </Box>
             </Box>
           </List>
