@@ -27,7 +27,6 @@ export default function DemoPage() {
     let info = computeKirkpatrick(pts, outerTriangle);
     triangle = info[0];
     triangleHole = info[1];
-    let all_triangles = triangle.clone().insert(triangleHole.clone());
     levels = [];
     levels.push(...info[2]);
     dag = info[3];
@@ -60,7 +59,7 @@ export default function DemoPage() {
             new_pts.push(
               new Pt(
                 space.size.x * 0.35 + Math.floor(x_size * Math.random()),
-                space.size.y * 0.45 + Math.floor(y_size * Math.random())
+                space.size.y * 0.5 + Math.floor(y_size * Math.random())
               )
             );
           }
@@ -114,7 +113,6 @@ export default function DemoPage() {
               let info = computeKirkpatrick(pts, outerTriangle);
               triangle = info[0];
               triangleHole = info[1];
-              let all_triangles = triangle.clone().insert(triangleHole.clone());
 
               levels = [];
               levels.push(...info[2]);

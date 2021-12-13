@@ -259,14 +259,7 @@ function computeDag(levels) {
   };
 
   let intersect = (old_tri, new_tri) => {
-    // point in old must be in new
-    let inside = false;
-    for (let i = 0; i < old_tri.length; i++) {
-      if (!same(old_tri, new_tri)) {
-        inside = true;
-      }
-    }
-    return inside;
+    return !same(old_tri, new_tri);
   };
 
   let filter = (a, b) => {
@@ -354,7 +347,7 @@ export function computeKirkpatrick(pts, outer_triangle) {
   levels.push([points, new_triangles, new_triangles_hole, new_all_triangles]);
 
   let prev = points.length;
-  while (points.length !== 1 || prev != points.length) {
+  while (points.length !== 1 || prev !== points.length) {
     [points, new_triangles, new_triangles_hole, new_all_triangles] =
       kirkpatrick(
         points.clone(),
