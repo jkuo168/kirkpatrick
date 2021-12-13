@@ -1,22 +1,22 @@
 {
   "files": {
     "main.css": "/kirkpatrick/static/css/main.6dea0f05.chunk.css",
-    "main.js": "/kirkpatrick/static/js/main.509610fc.chunk.js",
-    "main.js.map": "/kirkpatrick/static/js/main.509610fc.chunk.js.map",
+    "main.js": "/kirkpatrick/static/js/main.567647a5.chunk.js",
+    "main.js.map": "/kirkpatrick/static/js/main.567647a5.chunk.js.map",
     "runtime-main.js": "/kirkpatrick/static/js/runtime-main.8720c18e.js",
     "runtime-main.js.map": "/kirkpatrick/static/js/runtime-main.8720c18e.js.map",
-    "static/js/2.b043bf76.chunk.js": "/kirkpatrick/static/js/2.b043bf76.chunk.js",
-    "static/js/2.b043bf76.chunk.js.map": "/kirkpatrick/static/js/2.b043bf76.chunk.js.map",
+    "static/js/2.88193683.chunk.js": "/kirkpatrick/static/js/2.88193683.chunk.js",
+    "static/js/2.88193683.chunk.js.map": "/kirkpatrick/static/js/2.88193683.chunk.js.map",
     "static/js/3.af40bb98.chunk.js": "/kirkpatrick/static/js/3.af40bb98.chunk.js",
     "static/js/3.af40bb98.chunk.js.map": "/kirkpatrick/static/js/3.af40bb98.chunk.js.map",
     "index.html": "/kirkpatrick/index.html",
     "static/css/main.6dea0f05.chunk.css.map": "/kirkpatrick/static/css/main.6dea0f05.chunk.css.map",
-    "static/js/2.b043bf76.chunk.js.LICENSE.txt": "/kirkpatrick/static/js/2.b043bf76.chunk.js.LICENSE.txt"
+    "static/js/2.88193683.chunk.js.LICENSE.txt": "/kirkpatrick/static/js/2.88193683.chunk.js.LICENSE.txt"
   },
   "entrypoints": [
     "static/js/runtime-main.8720c18e.js",
-    "static/js/2.b043bf76.chunk.js",
+    "static/js/2.88193683.chunk.js",
     "static/css/main.6dea0f05.chunk.css",
-    "static/js/main.509610fc.chunk.js"
+    "static/js/main.567647a5.chunk.js"
   ]
 }
