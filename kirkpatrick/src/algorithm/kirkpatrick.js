@@ -1,10 +1,6 @@
 import { Pt, Group, Polygon } from "pts";
 import * as THREE from "three";
 
-function ccw(a, b, c) {
-  return (b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y);
-}
-
 function polygon(pts) {
   let polygon = [];
   let leftmost = new Pt(Number.POSITIVE_INFINITY, 0);
@@ -44,277 +40,334 @@ function polygon(pts) {
   let sorted_lower = sortX(lower);
 
   polygon = sorted_upper.concat(sorted_lower.reverse());
-  polygon = polygon.concat(polygon[0]);
   return Group.fromPtArray(polygon);
 }
 
 function triangulate(pts) {
-  let triangles = [];
+  let convert = (pts) => {
+    let vertices = [];
 
-  if (pts.length > 0) {
-    pts.pop();
-  }
-
-  while (pts.length > 3) {
-    let broken = false;
     for (let i = 0; i < pts.length; i++) {
-      let point = pts[i];
-      let next;
-      let prev;
-      if (i + 1 < pts.length) {
-        next = pts[i + 1];
-      } else {
-        next = pts[0];
-      }
-      if (i - 1 >= 0) {
-        prev = pts[i - 1];
-      } else {
-        prev = pts[pts.length - 1];
-      }
-
-      let isAcute = ccw(prev, point, next) >= 0;
-
-      // check no points are in triangle
-      let triangle = new Group(prev, point, next, prev);
-      let noPointInTriangle = true;
-      for (let j = 0; j < pts.length; j++) {
-        if (pts[j] !== point && pts[j] !== prev && pts[j] !== next) {
-          if (Polygon.hasIntersectPoint(triangle, pts[j])) {
-            noPointInTriangle = false;
-            break;
-          }
-        }
-      }
-
-      if (noPointInTriangle && isAcute) {
-        triangles.push(triangle);
-        pts = pts.filter((item) => item !== point);
-        broken = true;
-        break;
-      }
+      vertices.push(new THREE.Vector2(pts[i].x, pts[i].y));
     }
+    return vertices;
+  };
 
-    if (!broken) {
-      console.log("broken");
-      console.log(pts);
-      break;
-    }
+  let vertices = convert(pts);
+
+  let triangulate = THREE.ShapeUtils.triangulateShape(vertices, []);
+
+  let triangles = [];
+  for (let i = 0; i < triangulate.length; i++) {
+    let a = new Pt(
+      vertices[triangulate[i][0]].x,
+      vertices[triangulate[i][0]].y
+    );
+    let b = new Pt(
+      vertices[triangulate[i][1]].x,
+      vertices[triangulate[i][1]].y
+    );
+    let c = new Pt(
+      vertices[triangulate[i][2]].x,
+      vertices[triangulate[i][2]].y
+    );
+    triangles.push(new Group(a, b, c));
   }
-
-  triangles.push(pts);
   return Group.fromPtArray(triangles);
 }
 
-function convexHull(pts) {
-  // find leftmost and rightmost
-  let leftmost = new Pt(Number.POSITIVE_INFINITY, 0);
-  let rightmost = new Pt(Number.NEGATIVE_INFINITY, 0);
-
-  for (let i = 0; i < pts.length; i++) {
-    if (leftmost.x > pts[i].x) {
-      leftmost = pts[i];
-    }
-    if (rightmost.x < pts[i].x) {
-      rightmost = pts[i];
-    }
-  }
-
-  // split into upper and lower hulls
-  let upper = [];
-  let lower = [];
-
-  let isInUpper = (p) => {
-    let slope = (rightmost.y - leftmost.y) / (rightmost.x - leftmost.x);
-    let b = leftmost.y - slope * leftmost.x;
-    return slope * p.x + b > p.y;
-  };
-
-  for (let i = 0; i < pts.length; i++) {
-    if (isInUpper(pts[i])) {
-      upper.push(pts[i]);
-    } else {
-      lower.push(pts[i]);
-    }
-  }
-
-  let calcDistance = (p, q, r) => {
-    return Math.abs((q.x - p.x) * (p.y - r.y) - (p.x - r.x) * (q.y - p.y));
-  };
-
-  let calcFarthest = (pts, p, q) => {
-    let farthest_point = new Pt();
-    let farthest_distance = Number.NEGATIVE_INFINITY;
+function triangulateHole(pts, hole) {
+  let convert = (pts) => {
+    let vertices = [];
 
     for (let i = 0; i < pts.length; i++) {
-      let d = calcDistance(p, q, pts[i]);
-      if (d > farthest_distance) {
-        farthest_distance = d;
-        farthest_point = pts[i];
-      }
+      vertices.push(new THREE.Vector2(pts[i].x, pts[i].y));
     }
-    return farthest_point;
+    return vertices;
   };
+  let vertices = convert(pts);
 
-  // find point farthest distance from line
-  let farthest_upper =
-    upper.length > 0 ? calcFarthest(upper, leftmost, rightmost) : false;
-  let farthest_lower =
-    lower.length > 0 ? calcFarthest(lower, leftmost, rightmost) : false;
+  let holes = [];
+  let h = [];
+  for (let i = 0; i < hole.length; i++) {
+    h.push(new THREE.Vector2(hole[i].x, hole[i].y));
+  }
+  holes.push(h);
 
-  let isInside = (leftmost, rightmost, max, p) => {
-    let ccw1 = ccw(leftmost, max, p);
-    let ccw2 = ccw(rightmost, max, p);
+  let triangulate = THREE.ShapeUtils.triangulateShape(vertices, holes);
 
-    if (ccw1 * ccw2 < 0) {
-      return true;
-    } else {
+  let triangles = [];
+  for (let i = 0; i < triangulate.length; i++) {
+    let convert = (index, vertices, holes) => {
+      if (index >= vertices.length) {
+        return new Pt(
+          holes[index - vertices.length].x,
+          holes[index - vertices.length].y
+        );
+      } else {
+        return new Pt(vertices[index].x, vertices[index].y);
+      }
+    };
+    let a = convert(triangulate[i][0], vertices, holes[0]);
+    let b = convert(triangulate[i][1], vertices, holes[0]);
+    let c = convert(triangulate[i][2], vertices, holes[0]);
+    triangles.push(new Group(a, b, c));
+  }
+  return Group.fromPtArray(triangles);
+}
+
+function computeAdjacencyGraph(triangles) {
+  let adjacency = {};
+
+  for (let i = 0; i < triangles.length; i++) {
+    let a = triangles[i][0];
+    let b = triangles[i][1];
+    let c = triangles[i][2];
+
+    let includes = (p, array) => {
+      for (let i = 0; i < array.length; i++) {
+        if (array[i].x === p.x && array[i].y === p.y) {
+          return true;
+        }
+      }
       return false;
-    }
-  };
+    };
 
-  // remove points in quad
-  let remove = (pts, leftmost, rightmost, farthest) => {
-    let remove = [];
-    for (let i = 0; i < pts.length; i++) {
-      let is_inside = isInside(leftmost, rightmost, farthest, pts[i]);
-
-      if (is_inside) {
-        remove.push(upper[i]);
+    let add = (a, b) => {
+      if (!adjacency[a]) {
+        adjacency[a] = [];
       }
-    }
-    return remove;
-  };
-
-  let remove_upper = farthest_upper
-    ? remove(upper, leftmost, rightmost, farthest_upper)
-    : false;
-  let remove_lower = farthest_lower
-    ? remove(lower, leftmost, rightmost, farthest_lower)
-    : false;
-
-  // remove remove_indices from list
-  let new_upper = remove_upper
-    ? pts.filter((item) => {
-        return !remove_upper.includes(item);
-      })
-    : false;
-  let new_lower = remove_lower
-    ? pts.filter((item) => {
-        return !remove_lower.includes(item);
-      })
-    : false;
-
-  let hull = (p, q, coords, hull_coords) => {
-    if (!coords || coords.length == 0) {
-      return hull_coords;
-    }
-
-    let maxima = [];
-    for (let i = 0; i < coords.length; i++) {
-      let ccw1 = ccw(p, q, coords[i]);
-
-      if (ccw1 > 0) {
-        maxima.push(coords[i]);
+      if (!adjacency[b]) {
+        adjacency[b] = [];
       }
-    }
+      if (!includes(b, adjacency[a])) {
+        adjacency[a].push(b);
+      }
 
-    let max = calcFarthest(maxima, p, q);
+      if (!includes(a, adjacency[b])) {
+        adjacency[b].push(a);
+      }
+    };
 
-    let removePoints = remove(maxima, p, q, max);
-
-    let new_coords = maxima.filter((item) => !removePoints.includes(item));
-
-    if (new_coords.length > 0) {
-      hull(p, max, new_coords, hull_coords);
-      hull(max, q, new_coords, hull_coords);
-    } else {
-      hull_coords.push(p);
-      hull_coords.push(q);
-    }
-
-    return hull_coords;
-  };
-
-  let top_left = hull(leftmost, farthest_upper, new_upper, []);
-  let top_right = hull(farthest_upper, rightmost, new_upper, []);
-  let bottom_right = hull(rightmost, farthest_lower, new_lower, []);
-  let bottom_left = hull(farthest_lower, leftmost, new_lower, []);
-
-  let hull_coords = top_left
-    .concat(top_right)
-    .concat(bottom_right)
-    .concat(bottom_left);
-
-  let filtered_hull_coords = [];
-  for (let i = 0; i < hull_coords.length; i++) {
-    if (!filtered_hull_coords.includes(hull_coords[i])) {
-      filtered_hull_coords.push(hull_coords[i]);
-    }
+    add(a, b);
+    add(a, c);
+    add(b, c);
   }
-  filtered_hull_coords.push(filtered_hull_coords[0]);
-  return Group.fromPtArray(filtered_hull_coords);
+
+  return adjacency;
 }
 
-function triangulateConvexHull(pts, hull) {
-  pts = pts.splice(0, pts.length - 1);
-  hull = hull.splice(0, hull.length - 1);
-
-  // find index of pts same as hull
-  let pt_index = 0;
-  for (let i = 0; i < pts.length; i++) {
-    if (pts[i].x == hull[0].x && pts[i].y == hull[0].y) {
-      pt_index = i;
-      break;
-    }
+function findIndependentSet(pts, triangles, outer_triangle) {
+  if (pts.length === 2) {
+    return Group.fromPtArray([pts[0]]);
   }
 
-  let findIndex = (p, pts) => {
-    for (let i = 0; i < pts.length; i++) {
-      if (p.x == pts[i].x && p.y == pts[i].y) {
-        return i;
+  let independent_set = [];
+  let adjacency = computeAdjacencyGraph(triangles);
+
+  let keys = Object.keys(adjacency);
+  for (let i = 0; i < keys.length; i++) {
+    let convertToPoint = (p) => {
+      let s = p.split(",");
+      let n = [];
+      for (let j = 0; j < s.length; j++) {
+        n = n.concat(s[j].split("("));
+      }
+
+      let f = [];
+      for (let j = 0; j < n.length; j++) {
+        f = f.concat(n[j].split(")"));
+      }
+      return new Pt(parseFloat(f[1]), parseFloat(f[2]));
+    };
+
+    let includes = (p, array) => {
+      for (let i = 0; i < array.length; i++) {
+        if (array[i].x === p.x && array[i].y === p.y) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    // convert string to point
+    let k = convertToPoint(keys[i]);
+
+    // if it is not part of the big triangle
+    if (!includes(k, outer_triangle)) {
+      // if its adjacent list has no point in independent set
+      let neighbors = adjacency[keys[i]];
+      let independent = true;
+      for (let j = 0; j < neighbors.length; j++) {
+        if (includes(neighbors[j], independent_set)) {
+          independent = false;
+        }
+      }
+
+      if (independent) {
+        independent_set.push(k);
       }
     }
-    return -1;
-  };
-
-  // find polygons that still needs triangulating
-  let polygons = [];
-  for (let i = 0; i < hull.length; i++) {
-    let end_index = findIndex(hull[i], pts);
-    let start_index =
-      i + 1 < hull.length
-        ? findIndex(hull[i + 1], pts)
-        : findIndex(hull[0], pts);
-
-    let poly = pts.slice(start_index, end_index + 1);
-
-    if (poly.length > 2) {
-      poly.push(poly[0]);
-      polygons.push(poly);
-    }
   }
 
-  // triangulate each polygon
-  let triangulate_polygons = [];
-  for (let i = 0; i < polygons.length; i++) {
-    let triangles = triangulate(polygons[0]);
-    for (let j = 0; j < triangles.length; j++) {
-      triangulate_polygons.push(triangles[j]);
-    }
-  }
-
-  return Group.fromPtArray(triangulate_polygons);
+  return Group.fromPtArray(independent_set);
 }
 
-export default function computeKirkpatrick(pts) {
-  let poly = new Group();
-  let triangles = new Group();
-  let hull = new Group();
-  let triangulateHull = new Group();
+function kirkpatrick(pts, triangles, outer_triangle) {
+  // find independent set
+  let independent_set = findIndependentSet(
+    pts.clone(),
+    triangles.clone(),
+    outer_triangle.clone()
+  );
 
-  poly = polygon(pts.clone());
-  triangles = triangulate(poly.clone());
-  hull = convexHull(pts.clone());
-  triangulateHull = triangulateConvexHull(poly.clone(), hull.clone());
-  return [poly, triangles, hull, triangulateHull];
+  // remove points from list
+  let equal = (a, b) => {
+    return a.x === b.x && a.y === b.y;
+  };
+
+  for (let i = 0; i < independent_set.length; i++) {
+    pts = pts.filter((item) => {
+      return !equal(item, independent_set[i]);
+    });
+  }
+
+  // re-triangulate
+  pts = polygon(pts);
+  let new_triangles = triangulate(pts.clone());
+  let new_triangles_hole = triangulateHole(outer_triangle.clone(), pts.clone());
+  let all_triangles = new_triangles.clone().insert(new_triangles_hole.clone());
+
+  return [pts, new_triangles, new_triangles_hole, all_triangles];
+}
+
+function computeDag(levels) {
+  let dag = {};
+  let same = (a, b) => {
+    for (let i = 0; i < a.length; i++) {
+      let found = false;
+      for (let j = 0; j < b.length; j++) {
+        if (a[i].x === b[j].x && a[i].y === b[j].y) {
+          found = true;
+        }
+      }
+      if (!found) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  let intersect = (old_tri, new_tri) => {
+    // point in old must be in new
+    let inside = false;
+    for (let i = 0; i < old_tri.length; i++) {
+      if (!same(old_tri, new_tri)) {
+        inside = true;
+      }
+    }
+    return inside;
+  };
+
+  let filter = (a, b) => {
+    let new_a = [];
+    for (let i = 0; i < a.length; i++) {
+      let s = false;
+      for (let j = 0; j < b.length; j++) {
+        if (same(a[i], b[j])) {
+          s = true;
+        }
+      }
+      if (!s) {
+        new_a.push(a[i]);
+      }
+    }
+
+    return new_a;
+  };
+
+  for (let i = 0; i < levels.length; i++) {
+    if (i + 1 < levels.length) {
+      let new_triangles = levels[i + 1][3];
+      let old_triangles = levels[i][3];
+
+      // filter out same triangles
+      let filtered_new_triangles = filter(new_triangles, old_triangles);
+      let filtered_old_triangles = filter(old_triangles, new_triangles);
+
+      // for each new triangle
+      for (let j = 0; j < filtered_new_triangles.length; j++) {
+        // find old triangles that intersect it
+        for (let k = 0; k < filtered_old_triangles.length; k++) {
+          if (intersect(filtered_old_triangles[k], filtered_new_triangles[j])) {
+            if (!dag[filtered_new_triangles[j]]) {
+              dag[filtered_new_triangles[j]] = [];
+            }
+            dag[filtered_new_triangles[j]].push(filtered_old_triangles[k]);
+          }
+        }
+      }
+    }
+  }
+  return dag;
+}
+
+export function findLocation(point, dag, outer_triangle) {
+  let queue = [];
+  queue.push(dag[outer_triangle]);
+
+  while (queue.length > 0) {
+    let triangles = queue.pop(0);
+    // list of triangles
+    for (let i = 0; i < triangles.length; i++) {
+      if (Polygon.hasIntersectPoint(triangles[i], point)) {
+        if (!dag[triangles[i]]) {
+          return triangles[i];
+        } else {
+          queue.push(dag[triangles[i]]);
+        }
+      }
+    }
+  }
+
+  return new Group();
+}
+
+export function computeKirkpatrick(pts, outer_triangle) {
+  pts = polygon(pts);
+
+  // triangulate polygon
+  let triangles = triangulate(pts.clone());
+
+  // triangulate hole
+  let triangles_hole = triangulateHole(outer_triangle.clone(), pts.clone());
+
+  // compute kirkpatrick's algorithm
+  let all_triangles = triangles.clone().insert(triangles_hole.clone());
+  let levels = [];
+
+  levels.push([pts, triangles, triangles_hole, all_triangles]);
+
+  let [points, new_triangles, new_triangles_hole, new_all_triangles] =
+    kirkpatrick(pts.clone(), all_triangles.clone(), outer_triangle.clone());
+
+  levels.push([points, new_triangles, new_triangles_hole, new_all_triangles]);
+
+  let prev = points.length;
+  while (points.length !== 1 || prev != points.length) {
+    [points, new_triangles, new_triangles_hole, new_all_triangles] =
+      kirkpatrick(
+        points.clone(),
+        new_all_triangles.clone(),
+        outer_triangle.clone()
+      );
+    prev = points.length;
+
+    levels.push([points, new_triangles, new_triangles_hole, new_all_triangles]);
+  }
+
+  let dag = computeDag(levels);
+  dag[outer_triangle] = new_all_triangles;
+
+  return [triangles, triangles_hole, levels, dag];
 }

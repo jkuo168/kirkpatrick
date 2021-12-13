@@ -3,7 +3,7 @@ import { Box } from "@mui/material";
 import { Pt, Group } from "pts";
 import { QuickStartCanvas } from "react-pts-canvas";
 import GUI from "../components/GUI";
-import { computeKirkpatrick, findLocation } from "../algorithm/kirkpatrick_1";
+import { computeKirkpatrick, findLocation } from "../algorithm/kirkpatrick";
 import { createColor } from "material-ui-color";
 
 export default function DemoPage() {
@@ -159,9 +159,9 @@ export default function DemoPage() {
               let point_triangle = findLocation(
                 pointer.current,
                 dag,
-                outerTriangle
+                outerTriangle,
+                levels.length
               );
-
               setPointTriangle(point_triangle);
             }
 
@@ -172,24 +172,3 @@ export default function DemoPage() {
     </Box>
   );
 }
-
-//   new_pts = [
-//     new Pt(444, 343.25),
-//     new Pt(904, 277.25),
-//     new Pt(819, 363.25),
-//     new Pt(761, 228.25),
-//     new Pt(717, 308.25),
-//     new Pt(768, 353.25),
-//     new Pt(1071, 578.25),
-//     new Pt(443, 203.25),
-//     new Pt(564, 585.25),
-//     new Pt(652, 361.25),
-//   ];
-
-//   new_pts = [
-//     new Pt(529.3499755859375, 355.04998779296875),
-//     new Pt(455.3500061035156, 493.04998779296875),
-//     new Pt(337.3500061035156, 541.0499877929688),
-//     new Pt(473.3500061035156, 522.0499877929688),
-//     new Pt(323.3500061035156, 409.04998779296875),
-//   ];
